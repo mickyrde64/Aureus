@@ -1,0 +1,7 @@
+{
+  "name": "Aureus - Gold DCA Calculator",
+  "description": "A sophisticated gold investment calculator specializing in cost averaging with unique discount modeling and real-time AI-powered market analysis.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
