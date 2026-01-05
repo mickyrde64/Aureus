@@ -4,12 +4,14 @@ import { SimulationResult, AIAnalysis } from "../types";
 
 export const getAIAnalysis = async (result: SimulationResult): Promise<AIAnalysis> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const duration = result.monthlyData.length - 1;
   
   const prompt = `
     Task: Act as a senior precious metals analyst. 
-    Analyze this 36-month Gold DCA simulation:
+    Analyze this ${duration}-month Gold DCA simulation:
     - Initial Entry: $${(result.monthlyData[0]?.amountInvested || 0).toFixed(0)}
     - Monthly Contribution: $${(result.monthlyData[1]?.amountInvested || 0).toFixed(0)}
+    - Total Duration: ${duration} months
     - Average Cost Basis: $${result.averageCostPerOunce.toFixed(2)} /oz
     - Total Profit: $${result.totalProfit.toFixed(2)}
     - Return on Investment: ${result.roi.toFixed(2)}%
@@ -18,7 +20,7 @@ export const getAIAnalysis = async (result: SimulationResult): Promise<AIAnalysi
     
     Please provide:
     1. A concise performance summary (2-3 sentences).
-    2. Three strategic recommendations for the next 12 months based on current market trends.
+    2. Three strategic recommendations for the next period based on current market trends.
     3. Use Google Search to provide current real-time gold market sentiment and major price drivers (central bank buying, inflation data, etc.).
     
     Format the response clearly with headers.
