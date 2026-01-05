@@ -6,18 +6,22 @@ export const getAIAnalysis = async (result: SimulationResult): Promise<AIAnalysi
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
-    Analyze the following gold investment simulation:
-    - Total Invested: $${result.totalInvested.toFixed(2)}
-    - Total Gold Accumulated: ${result.totalGoldOunces.toFixed(4)} oz
-    - Final Portfolio Value: $${result.finalPortfolioValue.toFixed(2)}
-    - Average Cost Basis: $${result.averageCostPerOunce.toFixed(2)} per oz
-    - ROI: ${result.roi.toFixed(2)}%
-    - Unique Strategy: Monthly 2% discount on gold purchase price.
-
+    Task: Act as a senior precious metals analyst. 
+    Analyze this 36-month Gold DCA simulation:
+    - Initial Entry: $${(result.monthlyData[0]?.amountInvested || 0).toFixed(0)}
+    - Monthly Contribution: $${(result.monthlyData[1]?.amountInvested || 0).toFixed(0)}
+    - Average Cost Basis: $${result.averageCostPerOunce.toFixed(2)} /oz
+    - Total Profit: $${result.totalProfit.toFixed(2)}
+    - Return on Investment: ${result.roi.toFixed(2)}%
+    
+    Constraint: The user gets a fixed discount on every purchase.
+    
     Please provide:
-    1. A brief summary of the performance.
-    2. A list of 3 strategic recommendations.
-    3. Current real-time context of the gold market (use Google Search to find current spot prices and trends).
+    1. A concise performance summary (2-3 sentences).
+    2. Three strategic recommendations for the next 12 months based on current market trends.
+    3. Use Google Search to provide current real-time gold market sentiment and major price drivers (central bank buying, inflation data, etc.).
+    
+    Format the response clearly with headers.
   `;
 
   try {
@@ -29,7 +33,7 @@ export const getAIAnalysis = async (result: SimulationResult): Promise<AIAnalysi
       },
     });
 
-    const text = response.text || "Unable to generate analysis at this time.";
+    const text = response.text || "Analysis unavailable.";
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     
     const sources = chunks
@@ -39,35 +43,21 @@ export const getAIAnalysis = async (result: SimulationResult): Promise<AIAnalysi
         uri: chunk.web.uri,
       }));
 
-    // Split text into sections based on simple heuristics since we aren't using JSON mode for text with search
-    const lines = text.split('\n');
-    let summary = "";
-    let recommendations: string[] = [];
-    let marketContext = "";
+    // Improved resilient parsing
+    const sections = text.split(/(?:\d\.|Summary:|Recommendations:|Market Context:)/i);
     
-    let currentSection = 0;
-    lines.forEach(line => {
-      if (line.toLowerCase().includes('summary')) { currentSection = 1; return; }
-      if (line.toLowerCase().includes('recommendations')) { currentSection = 2; return; }
-      if (line.toLowerCase().includes('market')) { currentSection = 3; return; }
-
-      if (currentSection === 1) summary += line + " ";
-      if (currentSection === 2 && line.trim().startsWith('-')) recommendations.push(line.replace('-', '').trim());
-      if (currentSection === 3) marketContext += line + " ";
-    });
-
     return {
-      summary: summary.trim() || text.substring(0, 300) + "...",
-      recommendations: recommendations.length > 0 ? recommendations : ["Maintain consistency", "Monitor spot prices", "Diversify related assets"],
-      marketContext: marketContext.trim() || "Gold remains a strong hedge against inflation according to recent trends.",
-      sources,
+      summary: sections[1]?.trim() || text.split('\n')[0],
+      recommendations: sections[2]?.split('\n').filter(l => l.trim().length > 10).slice(0, 3).map(r => r.replace(/^[-*•\s]+/, '').trim()) || ["Monitor spot levels", "Rebalance monthly", "Consider inflation hedge"],
+      marketContext: sections[3]?.trim() || "The gold market continues to react to global macroeconomic shifts.",
+      sources: sources.slice(0, 5),
     };
   } catch (error) {
     console.error("Gemini Error:", error);
     return {
-      summary: "Error generating AI analysis. Please check your connection.",
-      recommendations: ["Error loading insights"],
-      marketContext: "Error loading market context.",
+      summary: "Simulation analysis currently offline. Please try again in a moment.",
+      recommendations: ["Ensure API connectivity", "Check market data availability"],
+      marketContext: "Real-time market context requires an active connection.",
       sources: [],
     };
   }
